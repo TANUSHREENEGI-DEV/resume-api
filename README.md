@@ -1,8 +1,10 @@
 # resume-api
 
-Backend for the **AI Resume Builder** — Day 13 task, Module 4 (Backend), Full-Stack Internship.
+Backend I built for our AI Resume Builder — Day 13 of my Full-Stack Internship (Module 4, Backend).
 
-Built with **Express**, one server, clean route files. Data is stored in `data.json` (read into memory on start, written back on every change) — no real database yet, that's next module. Auth and AI routes return sensible mock responses since we haven't built real login or real AI yet — today was about getting every route and JSON shape working.
+Before this I'd only built the frontend for ResumeFlow (the login/signup pages). This is the other half — the server that'll actually power it: saving resumes, handling sections and items, tracking job applications, and eventually real AI and real auth.
+
+Built with **Express**, one server, clean route files. Data lives in `data.json` for now — read into memory when the server starts, written back on every change. No real database yet, that's coming in the next module. Auth and AI routes send back mock responses since real login and real AI aren't built yet — today was about getting every route and JSON shape right, not the logic behind them.
 
 ## How to run it
 

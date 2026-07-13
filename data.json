@@ -1,0 +1,52 @@
+{
+  "users": [
+    {
+      "id": "u1",
+      "name": "Tanushree Negi",
+      "email": "tanushree@example.com",
+      "password": "hashed-mock-password",
+      "tier": "free",
+      "aiCredits": 20,
+      "createdAt": "2026-07-01T00:00:00.000Z"
+    }
+  ],
+  "sessions": [],
+  "documents": [
+    {
+      "id": "d1",
+      "userId": "u1",
+      "type": "resume",
+      "title": "Software Engineer Resume",
+      "templateId": "t1",
+      "sections": [
+        {
+          "id": "s1",
+          "type": "summary",
+          "title": "Summary",
+          "order": 1,
+          "items": [
+            { "id": "i1", "text": "Third-year AI & ML student building full-stack projects." }
+          ]
+        }
+      ],
+      "createdAt": "2026-07-01T00:00:00.000Z",
+      "updatedAt": "2026-07-01T00:00:00.000Z"
+    }
+  ],
+  "versions": [],
+  "templates": [
+    { "id": "t1", "name": "Minimal", "config": { "font": "Poppins", "accent": "#2f6feb", "layout": "single-column" } },
+    { "id": "t2", "name": "Modern", "config": { "font": "Inter", "accent": "#e6522c", "layout": "two-column" } }
+  ],
+  "applications": [
+    {
+      "id": "a1",
+      "userId": "u1",
+      "company": "Snapied",
+      "role": "Full Stack Intern",
+      "status": "applied",
+      "appliedDate": "2026-07-01",
+      "notes": ""
+    }
+  ]
+}

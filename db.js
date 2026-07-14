@@ -2,7 +2,6 @@
 // tiny "database" for the AI Resume Builder api.
 // reads data.json into memory on start, every route mutates this object,
 // and every change gets written back to disk right away.
-
 const fs = require("fs");
 const path = require("path");
 

@@ -1,8 +1,6 @@
 // routes/documents.js
-// documents are the core resource: resumes and cover letters.
-// also holds the nested sections/items routes and the versions routes,
-// since they all live under /api/documents/:id.
-
+// the core resource. documents own sections, sections own items,
+// and documents keep a versions list. every mutation ends with db.save().
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
@@ -10,92 +8,92 @@ const mockAuth = require("../middleware/mockAuth");
 
 router.use(mockAuth);
 
-function findDoc(id, userId) {
-  return db.data.documents.find((d) => d.id === id && d.userId === userId);
+function findDocOr404(req, res) {
+  const doc = db.data.documents.find(
+    (d) => d.id === req.params.id && d.userId === req.user.id
+  );
+  if (!doc) {
+    res.status(404).json({ error: "document not found" });
+    return null;
+  }
+  return doc;
 }
 
-// ---------- documents ----------
-
-// GET /api/documents - list my resumes and cover letters
+// GET /api/documents
 router.get("/", (req, res) => {
   const docs = db.data.documents.filter((d) => d.userId === req.user.id);
   res.status(200).json(docs);
 });
 
-// POST /api/documents - create one (blank or from a template)
+// POST /api/documents
 router.post("/", (req, res) => {
-  const { title, type, templateId } = req.body || {};
+  const { title, type, templateId } = req.body;
 
   if (!title || !type) {
     return res.status(400).json({ error: "title and type are required" });
   }
 
+  const now = new Date().toISOString();
   const newDoc = {
-    id: db.makeId("d"),
+    id: db.makeId("doc"),
     userId: req.user.id,
-    type, // "resume" | "cover-letter"
     title,
+    type,
     templateId: templateId || null,
     sections: [],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    versions: [],
+    createdAt: now,
+    updatedAt: now
   };
 
   db.data.documents.push(newDoc);
   db.save();
+
   res.status(201).json(newDoc);
 });
 
-// POST /api/documents/import - create one from an upload or LinkedIn data
+// POST /api/documents/import
 router.post("/import", (req, res) => {
-  const { source, title } = req.body || {};
+  const { title, type, source, content } = req.body;
 
-  if (!source) {
-    return res.status(400).json({ error: "source is required (e.g. 'upload' or 'linkedin')" });
+  if (!title || !type) {
+    return res.status(400).json({ error: "title and type are required" });
   }
 
-  // mock import - a real version would parse the upload / LinkedIn payload
+  const now = new Date().toISOString();
   const newDoc = {
-    id: db.makeId("d"),
+    id: db.makeId("doc"),
     userId: req.user.id,
-    type: "resume",
-    title: title || `Imported from ${source}`,
+    title,
+    type,
     templateId: null,
-    sections: [
-      {
-        id: db.makeId("s"),
-        type: "summary",
-        title: "Summary",
-        order: 1,
-        items: [{ id: db.makeId("i"), text: `(mock) content imported from ${source}` }]
-      }
-    ],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    importedFrom: source || "upload",
+    sections: content?.sections || [],
+    versions: [],
+    createdAt: now,
+    updatedAt: now
   };
 
   db.data.documents.push(newDoc);
   db.save();
+
   res.status(201).json(newDoc);
 });
 
-// GET /api/documents/:id - read one with its full content
+// GET /api/documents/:id
 router.get("/:id", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
   res.status(200).json(doc);
 });
 
-// PUT /api/documents/:id - save edits (whole document replace)
+// PUT /api/documents/:id
 router.put("/:id", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
-  const { title, type, templateId, sections } = req.body || {};
-
+  const { title, sections } = req.body;
   if (title !== undefined) doc.title = title;
-  if (type !== undefined) doc.type = type;
-  if (templateId !== undefined) doc.templateId = templateId;
   if (sections !== undefined) doc.sections = sections;
   doc.updatedAt = new Date().toISOString();
 
@@ -103,188 +101,208 @@ router.put("/:id", (req, res) => {
   res.status(200).json(doc);
 });
 
-// POST /api/documents/:id/duplicate - copy it (a tailored version)
+// POST /api/documents/:id/duplicate
 router.post("/:id/duplicate", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
+  const now = new Date().toISOString();
   const copy = {
     ...JSON.parse(JSON.stringify(doc)),
-    id: db.makeId("d"),
+    id: db.makeId("doc"),
     title: `${doc.title} (copy)`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
+    createdAt: now,
+    updatedAt: now
   };
 
   db.data.documents.push(copy);
   db.save();
+
   res.status(201).json(copy);
 });
 
-// DELETE /api/documents/:id - delete it
+// DELETE /api/documents/:id
 router.delete("/:id", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
-  db.data.documents = db.data.documents.filter((d) => d.id !== req.params.id);
-  db.data.versions = db.data.versions.filter((v) => v.documentId !== req.params.id);
+  db.data.documents = db.data.documents.filter((d) => d.id !== doc.id);
   db.save();
+
   res.status(204).send();
 });
 
 // ---------- sections ----------
 
-// POST /api/documents/:id/sections - add a section
+// POST /api/documents/:id/sections
 router.post("/:id/sections", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
-  const { type, title, order } = req.body || {};
+  const { type, title, order } = req.body;
   if (!type || !title) {
     return res.status(400).json({ error: "type and title are required" });
   }
 
-  const section = {
-    id: db.makeId("s"),
+  const newSection = {
+    id: db.makeId("sec"),
     type,
     title,
     order: order ?? doc.sections.length + 1,
     items: []
   };
 
-  doc.sections.push(section);
+  doc.sections.push(newSection);
   doc.updatedAt = new Date().toISOString();
   db.save();
-  res.status(201).json(section);
+
+  res.status(201).json(newSection);
 });
 
-// PATCH /api/documents/:id/sections/:sectionId - edit or reorder a section
+// PATCH /api/documents/:id/sections/:sectionId
 router.patch("/:id/sections/:sectionId", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
   const section = doc.sections.find((s) => s.id === req.params.sectionId);
-  if (!section) return res.status(404).json({ error: "section not found" });
+  if (!section) {
+    return res.status(404).json({ error: "section not found" });
+  }
 
-  const { title, type, order } = req.body || {};
+  const { title, order, type } = req.body;
   if (title !== undefined) section.title = title;
-  if (type !== undefined) section.type = type;
   if (order !== undefined) section.order = order;
-  doc.updatedAt = new Date().toISOString();
+  if (type !== undefined) section.type = type;
 
+  doc.updatedAt = new Date().toISOString();
   db.save();
+
   res.status(200).json(section);
 });
 
-// DELETE /api/documents/:id/sections/:sectionId - remove a section
+// DELETE /api/documents/:id/sections/:sectionId
 router.delete("/:id/sections/:sectionId", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
-  const exists = doc.sections.some((s) => s.id === req.params.sectionId);
-  if (!exists) return res.status(404).json({ error: "section not found" });
-
+  const before = doc.sections.length;
   doc.sections = doc.sections.filter((s) => s.id !== req.params.sectionId);
+
+  if (doc.sections.length === before) {
+    return res.status(404).json({ error: "section not found" });
+  }
+
   doc.updatedAt = new Date().toISOString();
   db.save();
+
   res.status(204).send();
 });
 
 // ---------- items ----------
 
-// POST /api/documents/:id/sections/:sectionId/items - add an entry
+// POST /api/documents/:id/sections/:sectionId/items
 router.post("/:id/sections/:sectionId/items", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
   const section = doc.sections.find((s) => s.id === req.params.sectionId);
-  if (!section) return res.status(404).json({ error: "section not found" });
+  if (!section) {
+    return res.status(404).json({ error: "section not found" });
+  }
 
-  const item = { id: db.makeId("i"), ...(req.body || {}) };
-  section.items.push(item);
+  const newItem = { id: db.makeId("item"), ...req.body };
+  section.items.push(newItem);
   doc.updatedAt = new Date().toISOString();
-
   db.save();
-  res.status(201).json(item);
+
+  res.status(201).json(newItem);
 });
 
-// PATCH /api/documents/:id/sections/:sectionId/items/:itemId - edit or reorder an entry
+// PATCH /api/documents/:id/sections/:sectionId/items/:itemId
 router.patch("/:id/sections/:sectionId/items/:itemId", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
   const section = doc.sections.find((s) => s.id === req.params.sectionId);
-  if (!section) return res.status(404).json({ error: "section not found" });
+  if (!section) {
+    return res.status(404).json({ error: "section not found" });
+  }
 
   const item = section.items.find((i) => i.id === req.params.itemId);
-  if (!item) return res.status(404).json({ error: "item not found" });
+  if (!item) {
+    return res.status(404).json({ error: "item not found" });
+  }
 
-  Object.assign(item, req.body || {});
+  Object.assign(item, req.body);
   doc.updatedAt = new Date().toISOString();
-
   db.save();
+
   res.status(200).json(item);
 });
 
-// DELETE /api/documents/:id/sections/:sectionId/items/:itemId - remove an entry
+// DELETE /api/documents/:id/sections/:sectionId/items/:itemId
 router.delete("/:id/sections/:sectionId/items/:itemId", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
   const section = doc.sections.find((s) => s.id === req.params.sectionId);
-  if (!section) return res.status(404).json({ error: "section not found" });
+  if (!section) {
+    return res.status(404).json({ error: "section not found" });
+  }
 
-  const exists = section.items.some((i) => i.id === req.params.itemId);
-  if (!exists) return res.status(404).json({ error: "item not found" });
-
+  const before = section.items.length;
   section.items = section.items.filter((i) => i.id !== req.params.itemId);
+
+  if (section.items.length === before) {
+    return res.status(404).json({ error: "item not found" });
+  }
+
   doc.updatedAt = new Date().toISOString();
   db.save();
+
   res.status(204).send();
 });
 
 // ---------- versions ----------
 
-// GET /api/documents/:id/versions - list saved versions
+// GET /api/documents/:id/versions
 router.get("/:id/versions", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
-
-  const versions = db.data.versions.filter((v) => v.documentId === doc.id);
-  res.status(200).json(versions);
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
+  res.status(200).json(doc.versions);
 });
 
-// POST /api/documents/:id/versions - save the current state as a version
+// POST /api/documents/:id/versions
 router.post("/:id/versions", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
-  const version = {
-    id: db.makeId("v"),
-    documentId: doc.id,
-    snapshot: JSON.parse(JSON.stringify(doc)),
-    createdAt: new Date().toISOString()
+  const newVersion = {
+    id: db.makeId("ver"),
+    createdAt: new Date().toISOString(),
+    snapshot: JSON.parse(JSON.stringify(doc.sections))
   };
 
-  db.data.versions.push(version);
+  doc.versions.push(newVersion);
   db.save();
-  res.status(201).json(version);
+
+  res.status(201).json(newVersion);
 });
 
-// POST /api/documents/:id/versions/:versionId/restore - roll back to one
+// POST /api/documents/:id/versions/:versionId/restore
 router.post("/:id/versions/:versionId/restore", (req, res) => {
-  const doc = findDoc(req.params.id, req.user.id);
-  if (!doc) return res.status(404).json({ error: "document not found" });
+  const doc = findDocOr404(req, res);
+  if (!doc) return;
 
-  const version = db.data.versions.find(
-    (v) => v.id === req.params.versionId && v.documentId === doc.id
-  );
-  if (!version) return res.status(404).json({ error: "version not found" });
+  const version = doc.versions.find((v) => v.id === req.params.versionId);
+  if (!version) {
+    return res.status(404).json({ error: "version not found" });
+  }
 
-  const { id, userId, createdAt } = doc; // keep identity fields
-  Object.assign(doc, version.snapshot, { id, userId, createdAt, updatedAt: new Date().toISOString() });
-
+  doc.sections = JSON.parse(JSON.stringify(version.snapshot));
+  doc.updatedAt = new Date().toISOString();
   db.save();
+
   res.status(200).json(doc);
 });
 

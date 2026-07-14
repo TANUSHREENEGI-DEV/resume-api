@@ -1,21 +1,20 @@
 // routes/auth.js
-// no real auth yet - these return sensible mock responses so the shapes
-// are right for the frontend to build against.
-
+// mock auth - no real password hashing or tokens yet, that's a later module.
+// what matters today: every route touches data.json through db.save().
 const express = require("express");
 const router = express.Router();
 const db = require("../db");
 
-// POST /api/auth/register - create account
+// POST /api/auth/register
 router.post("/register", (req, res) => {
-  const { name, email, password } = req.body || {};
+  const { name, email, password } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: "name, email and password are required" });
   }
 
-  const existing = db.data.users.find((u) => u.email === email);
-  if (existing) {
+  const exists = db.data.users.find((u) => u.email === email);
+  if (exists) {
     return res.status(400).json({ error: "an account with this email already exists" });
   }
 
@@ -23,9 +22,9 @@ router.post("/register", (req, res) => {
     id: db.makeId("u"),
     name,
     email,
-    password: "hashed-mock-password", // never store plain text in a real app
+    password, // plaintext for now - real hashing comes with real auth
     tier: "free",
-    aiCredits: 20,
+    aiCredits: 5,
     createdAt: new Date().toISOString()
   };
 
@@ -33,61 +32,68 @@ router.post("/register", (req, res) => {
   db.save();
 
   const { password: _pw, ...safeUser } = newUser;
-  res.status(201).json({ user: safeUser, token: `mock-token-${newUser.id}` });
+  res.status(201).json({ user: safeUser });
 });
 
-// POST /api/auth/login - obtain an access token
+// POST /api/auth/login
 router.post("/login", (req, res) => {
-  const { email, password } = req.body || {};
+  const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ error: "email and password are required" });
-  }
-
-  const user = db.data.users.find((u) => u.email === email);
+  const user = db.data.users.find((u) => u.email === email && u.password === password);
   if (!user) {
     return res.status(401).json({ error: "invalid email or password" });
   }
 
-  // mock check only - no real password hashing yet
+  // mock token - real JWT comes later
   const token = `mock-token-${user.id}`;
-  db.data.sessions.push({ token, userId: user.id, createdAt: new Date().toISOString() });
-  db.save();
-
-  res.status(200).json({ token, tokenType: "Bearer", expiresIn: 3600 });
+  res.status(200).json({ token, userId: user.id });
 });
 
-// POST /api/auth/logout - invalidate the session
+// POST /api/auth/logout
 router.post("/logout", (req, res) => {
-  const authHeader = req.headers.authorization || "";
-  const token = authHeader.replace("Bearer ", "");
-
-  db.data.sessions = db.data.sessions.filter((s) => s.token !== token);
-  db.save();
-
+  // no real sessions to invalidate yet, but the route exists and responds correctly
   res.status(200).json({ message: "logged out" });
 });
 
-// POST /api/auth/forgot-password - begin password recovery
+// POST /api/auth/forgot-password
 router.post("/forgot-password", (req, res) => {
-  const { email } = req.body || {};
+  const { email } = req.body;
+
   if (!email) {
     return res.status(400).json({ error: "email is required" });
   }
 
-  // mock - in a real app this would email a reset link
-  res.status(200).json({ message: "if that email exists, a reset link has been sent" });
-});
-
-// POST /api/auth/reset-password - complete password reset
-router.post("/reset-password", (req, res) => {
-  const { token, newPassword } = req.body || {};
-  if (!token || !newPassword) {
-    return res.status(400).json({ error: "token and newPassword are required" });
+  const user = db.data.users.find((u) => u.email === email);
+  if (!user) {
+    // don't reveal whether the email exists - standard practice
+    return res.status(200).json({ message: "if that account exists, a reset link was sent" });
   }
 
-  // mock - would verify the reset token and update the real user's password
-  res.status(200).json({ message: "password has been reset" });
+  const resetToken = db.makeId("reset");
+  user.resetToken = resetToken;
+  db.save();
+
+  res.status(200).json({ message: "if that account exists, a reset link was sent" });
+});
+
+// POST /api/auth/reset-password
+router.post("/reset-password", (req, res) => {
+  const { resetToken, newPassword } = req.body;
+
+  if (!resetToken || !newPassword) {
+    return res.status(400).json({ error: "resetToken and newPassword are required" });
+  }
+
+  const user = db.data.users.find((u) => u.resetToken === resetToken);
+  if (!user) {
+    return res.status(400).json({ error: "invalid or expired reset token" });
+  }
+
+  user.password = newPassword;
+  delete user.resetToken;
+  db.save();
+
+  res.status(200).json({ message: "password updated" });
 });
 
 module.exports = router;

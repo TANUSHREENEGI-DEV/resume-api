@@ -4,49 +4,60 @@
       "id": "u1",
       "name": "Tanushree Negi",
       "email": "tanushree@example.com",
-      "password": "hashed-mock-password",
+      "password": "seedpassword123",
       "tier": "free",
-      "aiCredits": 20,
+      "aiCredits": 5,
       "createdAt": "2026-07-01T00:00:00.000Z"
     }
   ],
-  "sessions": [],
   "documents": [
     {
-      "id": "d1",
+      "id": "doc1",
       "userId": "u1",
+      "title": "My First Resume",
       "type": "resume",
-      "title": "Software Engineer Resume",
-      "templateId": "t1",
+      "templateId": "tpl1",
       "sections": [
         {
-          "id": "s1",
-          "type": "summary",
-          "title": "Summary",
+          "id": "sec1",
+          "type": "experience",
+          "title": "Experience",
           "order": 1,
           "items": [
-            { "id": "i1", "text": "Third-year AI & ML student building full-stack projects." }
+            {
+              "id": "item1",
+              "role": "Full Stack Intern",
+              "company": "Shorter Loop",
+              "description": "Built REST APIs with Express and Node.js"
+            }
           ]
         }
       ],
+      "versions": [],
       "createdAt": "2026-07-01T00:00:00.000Z",
       "updatedAt": "2026-07-01T00:00:00.000Z"
     }
   ],
-  "versions": [],
   "templates": [
-    { "id": "t1", "name": "Minimal", "config": { "font": "Poppins", "accent": "#2f6feb", "layout": "single-column" } },
-    { "id": "t2", "name": "Modern", "config": { "font": "Inter", "accent": "#e6522c", "layout": "two-column" } }
+    {
+      "id": "tpl1",
+      "name": "Minimal",
+      "layout": "single-column"
+    },
+    {
+      "id": "tpl2",
+      "name": "Modern",
+      "layout": "two-column"
+    }
   ],
   "applications": [
     {
-      "id": "a1",
+      "id": "app1",
       "userId": "u1",
-      "company": "Snapied",
-      "role": "Full Stack Intern",
+      "company": "Example Corp",
+      "role": "Frontend Developer",
       "status": "applied",
-      "appliedDate": "2026-07-01",
-      "notes": ""
+      "appliedDate": "2026-07-05T00:00:00.000Z"
     }
-  ]
+    ]
 }

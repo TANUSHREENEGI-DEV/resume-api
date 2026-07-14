@@ -1,145 +1,232 @@
-# resume-api
+# resume-api 🧾
 
-Backend I built for our AI Resume Builder — Day 13 of my Full-Stack Internship (Module 4, Backend).
+This is the backend for **ResumeFlow**, my AI resume builder project. It's a REST API built with Express that handles everything from auth to documents to a mock AI layer — and now it actually saves data instead of forgetting everything the moment the server restarts.
 
-Before this I'd only built the frontend for ResumeFlow (the login/signup pages). This is the other half — the server that'll actually power it: saving resumes, handling sections and items, tracking job applications, and eventually real AI and real auth.
+I built this as part of my Full Stack internship (Module 4, Day 13-14). Earlier version had all the routes working but data only lived in memory. This version fixes that — every write goes to `data.json` on disk, for real.
 
-Built with **Express**, one server, clean route files. Data lives in `data.json` for now — read into memory when the server starts, written back on every change. No real database yet, that's coming in the next module. Auth and AI routes send back mock responses since real login and real AI aren't built yet — today was about getting every route and JSON shape right, not the logic behind them.
+---
 
-## How to run it
+## What it does
 
-```bash
-npm install
-npm start
-```
+- User auth (register/login/logout, mock password reset)
+- User profile management
+- Full document CRUD — resumes can have sections, and sections can have items (like experience entries), plus a version history so you can roll back edits
+- A templates list to pick a resume layout
+- A mock AI layer (bullet point rewriting, summaries) that spends "AI credits"
+- A job application tracker (company, role, status)
 
-Server runs at `http://localhost:3000`. There's no real login yet, so every request is treated as the one seed user in `data.json` (`u1`, tanushree@example.com) — no Authorization header needed to test `GET` routes straight from the browser.
+---
 
-Test any route with curl, e.g.:
+## Tech stack
 
-```bash
-curl http://localhost:3000/api/documents
-curl -X POST http://localhost:3000/api/documents -H "Content-Type: application/json" -d '{"title":"My Resume","type":"resume"}'
-```
+- **Node.js + Express** — the server
+- **`data.json`** — file-based storage, no real database yet
+- **Postman** — for testing routes manually
 
-## Request flow
+---
 
-```mermaid
-sequenceDiagram
-    participant Browser
-    participant Express as Express (app.js)
-    participant Route as Route file
-    participant Data as data.json
-
-    Browser->>Express: HTTP request (e.g. POST /api/documents)
-    Express->>Route: matched by /api/documents router
-    Route->>Data: read/update in-memory data
-    Route->>Data: db.save() writes data.json
-    Route-->>Express: JSON + status code
-    Express-->>Browser: response
-```
-
-## Project structure
+## Folder structure
 
 ```
 resume-api/
-  app.js              # express setup, mounts every router
-  db.js                # loads/saves data.json, generates ids
-  middleware/
-    mockAuth.js         # attaches the seed user as req.user (no real login yet)
-  routes/
-    auth.js
-    users.js
-    documents.js         # documents + nested sections/items + versions
-    templates.js
-    ai.js
-    applications.js
-  data.json             # the "database" for now
+├── app.js                  # express setup, mounts all routers
+├── db.js                   # tiny "database" - loads/saves data.json
+├── data.json               # the actual data (users, documents, etc.)
+├── package.json
+├── middleware/
+│   └── mockAuth.js         # attaches a seed user to every request
+└── routes/
+    ├── auth.js              # register, login, logout, password reset
+    ├── users.js              # get/update/delete profile
+    ├── documents.js          # documents + sections + items + versions
+    ├── templates.js          # read-only template list
+    ├── ai.js                 # mock AI text improvements
+    └── applications.js       # job application tracker
 ```
 
-## Every route built
+---
 
-### Auth (`/api/auth`) — mock responses, no real login yet
-| Method | Endpoint | Purpose |
+## How persistence actually works
+
+This was the whole point of this update. `db.js` keeps one in-memory copy of `data.json`, and every single route that changes something calls `db.save()` right after, which writes the whole object back to disk.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Route as Route Handler
+    participant DB as db.js
+    participant File as data.json
+
+    Client->>Route: POST /api/applications
+    Route->>DB: db.data.applications.push(newApp)
+    Route->>DB: db.save()
+    DB->>File: fs.writeFileSync(data)
+    File-->>DB: written
+    DB-->>Route: done
+    Route-->>Client: 201 Created + new application
+```
+
+No route is allowed to mutate `db.data` and skip the save step — that was the bug in the earlier version.
+
+---
+
+## Data model
+
+```mermaid
+classDiagram
+    class User {
+        +string id
+        +string name
+        +string email
+        +string password
+        +string tier
+        +number aiCredits
+    }
+
+    class Document {
+        +string id
+        +string userId
+        +string title
+        +string type
+        +string templateId
+        +Section[] sections
+        +Version[] versions
+    }
+
+    class Section {
+        +string id
+        +string type
+        +string title
+        +number order
+        +Item[] items
+    }
+
+    class Item {
+        +string id
+        +string role
+        +string company
+        +string description
+    }
+
+    class Version {
+        +string id
+        +string createdAt
+        +Section[] snapshot
+    }
+
+    class Application {
+        +string id
+        +string userId
+        +string company
+        +string role
+        +string status
+    }
+
+    User "1" --> "many" Document
+    Document "1" --> "many" Section
+    Section "1" --> "many" Item
+    Document "1" --> "many" Version
+    User "1" --> "many" Application
+```
+
+---
+
+## Document version lifecycle
+
+A document doesn't just get overwritten when you edit it — you can save a version snapshot and restore it later if you mess something up.
+
+```mermaid
+stateDiagram-v2
+    [*] --> Draft
+    Draft --> Versioned: save version
+    Versioned --> Draft: continue editing
+    Draft --> Restored: restore old version
+    Restored --> Draft: continue editing
+    Draft --> [*]: delete document
+```
+
+---
+
+## API routes
+
+### Auth (`/api/auth`)
+| Method | Route | What it does |
 |---|---|---|
-| POST | `/api/auth/register` | Create account |
-| POST | `/api/auth/login` | Obtain an access token |
-| POST | `/api/auth/logout` | Invalidate the session |
-| POST | `/api/auth/forgot-password` | Begin password recovery |
-| POST | `/api/auth/reset-password` | Complete password reset |
+| POST | `/register` | creates a new user |
+| POST | `/login` | returns a mock token |
+| POST | `/logout` | mock logout |
+| POST | `/forgot-password` | generates a reset token |
+| POST | `/reset-password` | sets a new password using that token |
 
 ### Users (`/api/users`)
-| Method | Endpoint | Purpose |
+| Method | Route | What it does |
 |---|---|---|
-| GET | `/api/users/me` | Current profile, tier, AI credits |
-| PUT | `/api/users/me` | Update profile |
-| DELETE | `/api/users/me` | Delete account and data |
+| GET | `/me` | current user's profile |
+| PUT | `/me` | update name/email |
+| DELETE | `/me` | deletes account + their documents + applications |
 
-### Documents (`/api/documents`) — the core resource
-| Method | Endpoint | Purpose |
+### Documents (`/api/documents`)
+| Method | Route | What it does |
 |---|---|---|
-| GET | `/api/documents` | List my resumes and cover letters |
-| POST | `/api/documents` | Create one (blank or from a template) |
-| POST | `/api/documents/import` | Create one from an upload or LinkedIn data |
-| GET | `/api/documents/:id` | Read one with its full content |
-| PUT | `/api/documents/:id` | Save edits |
-| POST | `/api/documents/:id/duplicate` | Copy it (a tailored version) |
-| DELETE | `/api/documents/:id` | Delete it |
-
-### Sections & items (nested under a document)
-| Method | Endpoint | Purpose |
-|---|---|---|
-| POST | `/api/documents/:id/sections` | Add a section |
-| PATCH | `/api/documents/:id/sections/:sectionId` | Edit or reorder a section |
-| DELETE | `/api/documents/:id/sections/:sectionId` | Remove a section |
-| POST | `/api/documents/:id/sections/:sectionId/items` | Add an entry |
-| PATCH | `/api/documents/:id/sections/:sectionId/items/:itemId` | Edit or reorder an entry |
-| DELETE | `/api/documents/:id/sections/:sectionId/items/:itemId` | Remove an entry |
-
-I kept the whole-document `PUT` above **and** these nested routes, since the task asked for both — nested routes matter if we want autosave-per-field later.
-
-### Versions
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/api/documents/:id/versions` | List saved versions |
-| POST | `/api/documents/:id/versions` | Save the current state as a version |
-| POST | `/api/documents/:id/versions/:versionId/restore` | Roll back to one |
+| GET | `/` | list my documents |
+| POST | `/` | create a new document |
+| POST | `/import` | create a document from imported content |
+| GET | `/:id` | get one document |
+| PUT | `/:id` | update title/sections |
+| POST | `/:id/duplicate` | clone a document |
+| DELETE | `/:id` | delete a document |
+| POST | `/:id/sections` | add a section |
+| PATCH | `/:id/sections/:sectionId` | update a section |
+| DELETE | `/:id/sections/:sectionId` | remove a section |
+| POST | `/:id/sections/:sectionId/items` | add an item to a section |
+| PATCH | `/:id/sections/:sectionId/items/:itemId` | update an item |
+| DELETE | `/:id/sections/:sectionId/items/:itemId` | remove an item |
+| GET | `/:id/versions` | list saved versions |
+| POST | `/:id/versions` | save current state as a version |
+| POST | `/:id/versions/:versionId/restore` | roll back to that version |
 
 ### Templates (`/api/templates`)
-| Method | Endpoint | Purpose |
+| Method | Route | What it does |
 |---|---|---|
-| GET | `/api/templates` | List available designs |
-| GET | `/api/templates/:id` | One template's config |
+| GET | `/` | list available templates |
+| GET | `/:id` | get one template |
 
-### AI (`/api/ai`) — mock output, each call costs one AI credit
-| Method | Endpoint | Purpose |
+### AI (`/api/ai`) — mock, costs 1 credit per call
+| Method | Route | What it does |
 |---|---|---|
-| POST | `/api/ai/bullets` | Generate or improve bullet points |
-| POST | `/api/ai/summary` | Generate a summary or headline |
-| POST | `/api/ai/rewrite` | Tighten or improve selected text |
-| POST | `/api/ai/prompt` | Apply a freeform instruction to a section |
+| POST | `/bullets` | rewrites bullet points |
+| POST | `/summary` | rewrites a summary |
+| POST | `/rewrite` | general rewrite |
+| POST | `/prompt` | rewrite with a custom instruction |
 
-Mock output just appends `" (improved)"` to the input text — the point today was the routes and shapes, not real AI.
-
-### Applications (`/api/applications`) — job tracker
-| Method | Endpoint | Purpose |
+### Applications (`/api/applications`)
+| Method | Route | What it does |
 |---|---|---|
-| GET | `/api/applications` | List tracked applications |
-| POST | `/api/applications` | Log one |
-| PATCH | `/api/applications/:id` | Update status |
-| DELETE | `/api/applications/:id` | Remove one |
+| GET | `/` | list my job applications |
+| POST | `/` | add a new application |
+| PATCH | `/:id` | update status/company/role |
+| DELETE | `/:id` | remove an application |
 
-## Status codes used
+---
 
-- `200` — successful read/update
-- `201` — resource created
-- `204` — successful delete (no body)
-- `400` — missing/invalid input
-- `401` — auth failed / not enough AI credits
-- `404` — resource not found
+## Running it locally
 
-## Notes
+```bash
+npm install
+node app.js
+```
 
-- Not built yet (mentioned as optional in the spec): ATS check, tailoring, exports, sharing. Same pattern as everything else here — POST for an action, GET to read — can be added the same way later.
-- `req.body` works because `express.json()` is turned on in `app.js`.
-- Every write goes through `db.save()` in `db.js`, so `data.json` always reflects the latest state.
+Server runs at `http://localhost:3000`. There's no real login yet — every request is treated as the seed user (`u1`) in `data.json`, through `middleware/mockAuth.js`. Real auth is a later module.
+
+Test it with Postman or `Invoke-RestMethod` (curl gets weird with quotes in PowerShell, learned that the hard way):
+
+```powershell
+Invoke-RestMethod -Uri "http://localhost:3000/api/applications" -Method Post -ContentType "application/json" -Body '{"company":"Google","role":"SWE Intern"}'
+```
+
+Then check `data.json` — the new entry should be sitting right there, saved on disk, not just in memory.
+
+---
+
+Built this one route at a time, testing persistence properly this time instead of assuming it worked. Next up: replacing the mock auth with real JWT-based sessions. 🌸
+

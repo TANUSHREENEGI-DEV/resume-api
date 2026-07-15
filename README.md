@@ -1,4 +1,4 @@
-# Resume-API
+# Resume-API 🧾
 
 This is the backend for **ResumeFlow**, my AI resume builder project. It's a REST API built with Express that handles everything from auth to documents to a mock AI layer — and now it actually saves data instead of forgetting everything the moment the server restarts.
 
@@ -6,7 +6,7 @@ I built this as part of my Full Stack internship (Module 4, Day 13-14). Earlier 
 
 ---
 
-## What it does
+## ● What it does
 
 - User auth (register/login/logout, mock password reset)
 - User profile management
@@ -17,7 +17,7 @@ I built this as part of my Full Stack internship (Module 4, Day 13-14). Earlier 
 
 ---
 
-## Tech stack
+## ● Tech stack
 
 - **Node.js + Express** — the server
 - **`data.json`** — file-based storage, no real database yet
@@ -25,52 +25,83 @@ I built this as part of my Full Stack internship (Module 4, Day 13-14). Earlier 
 
 ---
 
-## Folder structure
+## ● Folder structure
 
 ```
 resume-api/
-├── app.js                  # express setup, mounts all routers
+├── app.js                  # express setup, mounts the central router, applies middleware
 ├── db.js                   # tiny "database" - loads/saves data.json
 ├── data.json               # the actual data (users, documents, etc.)
 ├── package.json
 ├── middleware/
-│   └── mockAuth.js         # attaches a seed user to every request
+│   ├── mockAuth.js         # attaches a seed user to every request
+│   └── logger.js           # logs every incoming request (method + url)
+├── models/                 # only reads/writes data, nothing else
+│   ├── userModel.js
+│   ├── documentModel.js
+│   ├── templateModel.js
+│   └── applicationModel.js
+├── controllers/            # the actual business logic - validation, responses
+│   ├── authController.js
+│   ├── userController.js
+│   ├── documentController.js
+│   ├── templateController.js
+│   ├── aiController.js
+│   └── applicationController.js
 └── routes/
-    ├── auth.js              # register, login, logout, password reset
-    ├── users.js              # get/update/delete profile
-    ├── documents.js          # documents + sections + items + versions
-    ├── templates.js          # read-only template list
-    ├── ai.js                 # mock AI text improvements
-    └── applications.js       # job application tracker
+    ├── index.js             # central router - collects every sub-router under /api
+    ├── auth.js               # just wires paths to authController
+    ├── users.js               # just wires paths to userController
+    ├── documents.js           # just wires paths to documentController
+    ├── templates.js           # just wires paths to templateController
+    ├── ai.js                  # just wires paths to aiController
+    └── applications.js        # just wires paths to applicationController
 ```
+
+Started as one file per resource with routes and logic mixed together. Refactored in Module 3 / Day 15 to properly separate concerns: **routes** decide which URL maps to which function, **controllers** hold the actual logic, and **models** are the only files allowed to touch `db.data` directly. Every request also passes through a `logger` middleware first, so every hit shows up in the console as `METHOD /path`.
+
+### ▸ What each layer actually does
+
+| Layer | Job | Example |
+|---|---|---|
+| **Route** (`routes/*.js`) | Maps a URL + method to a controller function. No logic here. | `router.post("/login", controller.login)` |
+| **Controller** (`controllers/*.js`) | Validates the request, calls the model, decides the response and status code. | Checks `email`/`password` are present, calls `userModel.findByEmail`, returns `401` if it doesn't match |
+| **Model** (`models/*.js`) | The only place allowed to read or write `db.data`. Controllers never touch it directly. | `userModel.findByEmail(email)`, `userModel.create(data)` |
+
+The point of splitting it this way: if the data storage ever changes (say, a real database instead of `data.json`), only the `models/` files need to change — routes and controllers stay untouched because they only ever talk to the model functions, never to `db.js` directly.
 
 ---
 
-## How persistence actually works
+## ● How persistence actually works
 
-This was the whole point of this update. `db.js` keeps one in-memory copy of `data.json`, and every single route that changes something calls `db.save()` right after, which writes the whole object back to disk.
+This was the whole point of this update. `db.js` keeps one in-memory copy of `data.json`. Models are the only files that touch `db.data` — every model function that changes something calls `db.save()` right after, which writes the whole object back to disk.
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant Route as Route Handler
+    participant Route as Route
+    participant Controller
+    participant Model as applicationModel
     participant DB as db.js
     participant File as data.json
 
     Client->>Route: POST /api/applications
-    Route->>DB: db.data.applications.push(newApp)
-    Route->>DB: db.save()
+    Route->>Controller: create(req, res)
+    Controller->>Model: applicationModel.create(data)
+    Model->>DB: db.data.applications.push(newApp)
+    Model->>DB: db.save()
     DB->>File: fs.writeFileSync(data)
     File-->>DB: written
-    DB-->>Route: done
-    Route-->>Client: 201 Created + new application
+    DB-->>Model: done
+    Model-->>Controller: newApp
+    Controller-->>Client: 201 Created + new application
 ```
 
-No route is allowed to mutate `db.data` and skip the save step — that was the bug in the earlier version.
+No model is allowed to mutate `db.data` and skip the save step — that was the bug in an earlier version.
 
 ---
 
-## Data model
+## ● Data model
 
 ```mermaid
 classDiagram
@@ -131,7 +162,7 @@ classDiagram
 
 ---
 
-## Document version lifecycle
+## ● Document version lifecycle
 
 A document doesn't just get overwritten when you edit it — you can save a version snapshot and restore it later if you mess something up.
 
@@ -147,9 +178,9 @@ stateDiagram-v2
 
 ---
 
-## API routes
+## ● API routes
 
-### Auth (`/api/auth`)
+### ▸ Auth (`/api/auth`)
 | Method | Route | What it does |
 |---|---|---|
 | POST | `/register` | creates a new user |
@@ -158,14 +189,14 @@ stateDiagram-v2
 | POST | `/forgot-password` | generates a reset token |
 | POST | `/reset-password` | sets a new password using that token |
 
-### Users (`/api/users`)
+### ▸ Users (`/api/users`)
 | Method | Route | What it does |
 |---|---|---|
 | GET | `/me` | current user's profile |
 | PUT | `/me` | update name/email |
 | DELETE | `/me` | deletes account + their documents + applications |
 
-### Documents (`/api/documents`)
+### ▸ Documents (`/api/documents`)
 | Method | Route | What it does |
 |---|---|---|
 | GET | `/` | list my documents |
@@ -185,13 +216,13 @@ stateDiagram-v2
 | POST | `/:id/versions` | save current state as a version |
 | POST | `/:id/versions/:versionId/restore` | roll back to that version |
 
-### Templates (`/api/templates`)
+### ▸ Templates (`/api/templates`)
 | Method | Route | What it does |
 |---|---|---|
 | GET | `/` | list available templates |
 | GET | `/:id` | get one template |
 
-### AI (`/api/ai`) — mock, costs 1 credit per call
+### ▸ AI (`/api/ai`) — mock, costs 1 credit per call
 | Method | Route | What it does |
 |---|---|---|
 | POST | `/bullets` | rewrites bullet points |
@@ -199,7 +230,7 @@ stateDiagram-v2
 | POST | `/rewrite` | general rewrite |
 | POST | `/prompt` | rewrite with a custom instruction |
 
-### Applications (`/api/applications`)
+### ▸ Applications (`/api/applications`)
 | Method | Route | What it does |
 |---|---|---|
 | GET | `/` | list my job applications |
@@ -209,7 +240,7 @@ stateDiagram-v2
 
 ---
 
-## Running it locally
+## ● Running it locally
 
 ```bash
 npm install
@@ -228,7 +259,7 @@ Then check `data.json` — the new entry should be sitting right there, saved on
 
 ---
 
-## Tested and working
+## ● Tested and working
 
 Ran every route through Postman before calling this done — here's proof the persistence actually works.
 
@@ -240,6 +271,23 @@ Ran every route through Postman before calling this done — here's proof the pe
 
 <img width="1915" height="1022" alt="Screenshot 2026-07-15 031417" src="https://github.com/user-attachments/assets/bdc0efb9-b491-4c44-8dd0-1273836c0c37" />
 
+### ▸ Re-verified after the Day 15 refactor
+
+Moving all the logic into controllers and models could easily have broken something silently, so I re-ran the same two requests against the new structure before pushing.
+
+**GET `/api/documents`** — still returns the seed document correctly through the new `documentController` → `documentModel` path:
+
+[add new GET screenshot here]
+
+**POST `/api/applications`** — still returns `201 Created` with the `status` field intact through the new `applicationController` → `applicationModel` path:
+
+[add new POST screenshot here]
+
 ---
 
-Built this one route at a time, testing persistence properly this time instead of assuming it worked. Next up: replacing the mock auth with real JWT-based sessions. 🌸
+## ● Wrapping up
+
+Built one route at a time, with persistence verified through Postman rather than assumed. Next up: replacing the mock auth with real JWT-based sessions.
+
+*— Tanushree Negi*
+

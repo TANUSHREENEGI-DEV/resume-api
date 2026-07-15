@@ -1,23 +1,16 @@
 // app.js
-// express setup, mounts every router.
 const express = require("express");
+const logger = require("./middleware/logger");
+const routes = require("./routes");
+
 const app = express();
 
+// Middleware: runs before every route
 app.use(express.json());
+app.use(logger);
 
-const authRoutes = require("./routes/auth");
-const userRoutes = require("./routes/users");
-const documentRoutes = require("./routes/documents");
-const templateRoutes = require("./routes/templates");
-const aiRoutes = require("./routes/ai");
-const applicationRoutes = require("./routes/applications");
-
-app.use("/api/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/documents", documentRoutes);
-app.use("/api/templates", templateRoutes);
-app.use("/api/ai", aiRoutes);
-app.use("/api/applications", applicationRoutes);
+// All our routes live under /api
+app.use("/api", routes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

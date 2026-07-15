@@ -58,6 +58,22 @@
       "role": "Frontend Developer",
       "status": "applied",
       "appliedDate": "2026-07-05T00:00:00.000Z"
+    },
+    {
+      "id": "app_mrl6hlupoqiwb",
+      "userId": "u1",
+      "company": "Microsoft",
+      "role": "Backend Intern",
+      "status": "applied",
+      "appliedDate": "2026-07-14T21:43:42.049Z"
+    },
+    {
+      "id": "app_mrmn7cc2t5qws",
+      "status": "applied",
+      "appliedDate": "2026-07-15T22:19:22.802Z",
+      "userId": "u1",
+      "company": "Microsoft",
+      "role": "Backend Intern"
     }
-    ]
+  ]
 }

@@ -1,4 +1,4 @@
-# resume-api 🧾
+# Resume-API
 
 This is the backend for **ResumeFlow**, my AI resume builder project. It's a REST API built with Express that handles everything from auth to documents to a mock AI layer — and now it actually saves data instead of forgetting everything the moment the server restarts.
 
@@ -228,5 +228,18 @@ Then check `data.json` — the new entry should be sitting right there, saved on
 
 ---
 
-Built this one route at a time, testing persistence properly this time instead of assuming it worked. Next up: replacing the mock auth with real JWT-based sessions. 🌸
+## Tested and working
 
+Ran every route through Postman before calling this done — here's proof the persistence actually works.
+
+**GET `/api/documents`** — returns the seed document, confirming the server reads from `data.json` correctly:
+
+<img width="1907" height="1025" alt="Screenshot 2026-07-15 030741" src="https://github.com/user-attachments/assets/7271b5f9-5f12-45af-9ea3-ab82a1c446a2" />
+
+**POST `/api/applications`** — created a new job application, got back a clean `201 Created`. Checked `data.json` right after and the entry was sitting there on disk, not just in memory:
+
+<img width="1915" height="1022" alt="Screenshot 2026-07-15 031417" src="https://github.com/user-attachments/assets/bdc0efb9-b491-4c44-8dd0-1273836c0c37" />
+
+---
+
+Built this one route at a time, testing persistence properly this time instead of assuming it worked. Next up: replacing the mock auth with real JWT-based sessions. 🌸

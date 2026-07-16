@@ -289,7 +289,8 @@ Moving all the logic into controllers and models could easily have broken someth
 
 The class exercise was to trace one simple route end to end through the new structure before moving to full CRUD. Added `GET /api/documents/hello`, tested in Postman:
 
-[add hello route screenshot here]
+<img width="1915" height="1017" alt="Screenshot 2026-07-16 080751" src="https://github.com/user-attachments/assets/b3326783-0098-40f5-bd4f-cade77df6690" />
+
 
 ---
 

@@ -1,6 +1,11 @@
 // controllers/documentController.js
 const documentModel = require("../models/documentModel");
 
+// GET /api/documents/hello
+function hello(req, res) {
+  res.json({ message: "Hello from documents" });
+}
+
 function getDocOr404(req, res) {
   const doc = documentModel.findById(req.params.id, req.user.id);
   if (!doc) {
@@ -218,6 +223,7 @@ function restoreVersion(req, res) {
 }
 
 module.exports = {
+  hello,
   list,
   create,
   importDoc,

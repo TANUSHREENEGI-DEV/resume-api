@@ -199,6 +199,7 @@ stateDiagram-v2
 ### ▸ Documents (`/api/documents`)
 | Method | Route | What it does |
 |---|---|---|
+| GET | `/hello` | simple check route, returns a fixed message |
 | GET | `/` | list my documents |
 | POST | `/` | create a new document |
 | POST | `/import` | create a document from imported content |
@@ -282,6 +283,12 @@ Moving all the logic into controllers and models could easily have broken someth
 **POST `/api/applications`** — still returns `201 Created` with the `status` field intact through the new `applicationController` → `applicationModel` path:
 
 [add new POST screenshot here]
+
+### ▸ Day 15 checkpoint: hello route
+
+The class exercise was to trace one simple route end to end through the new structure before moving to full CRUD. Added `GET /api/documents/hello`, tested in Postman:
+
+[add hello route screenshot here]
 
 ---
 

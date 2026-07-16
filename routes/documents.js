@@ -1,10 +1,11 @@
-// routes/documents.js
 const express = require("express");
 const router = express.Router();
 const controller = require("../controllers/documentController");
 const mockAuth = require("../middleware/mockAuth");
 
 router.use(mockAuth);
+
+router.get("/hello", controller.hello);
 
 router.get("/", controller.list);
 router.post("/", controller.create);

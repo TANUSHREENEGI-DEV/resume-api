@@ -278,11 +278,12 @@ Moving all the logic into controllers and models could easily have broken someth
 
 **GET `/api/documents`** — still returns the seed document correctly through the new `documentController` → `documentModel` path:
 
-[add new GET screenshot here]
+<img width="1915" height="1016" alt="Screenshot 2026-07-16 034741" src="https://github.com/user-attachments/assets/9221d37a-68fd-41ea-9099-bf16f2520571" />
+
 
 **POST `/api/applications`** — still returns `201 Created` with the `status` field intact through the new `applicationController` → `applicationModel` path:
 
-[add new POST screenshot here]
+<img width="1917" height="1022" alt="Screenshot 2026-07-16 034945" src="https://github.com/user-attachments/assets/5e279406-a5ee-4f73-8c7d-13a79acebd84" />
 
 ### ▸ Day 15 checkpoint: hello route
 
@@ -296,5 +297,5 @@ The class exercise was to trace one simple route end to end through the new stru
 
 Built one route at a time, with persistence verified through Postman rather than assumed. Next up: replacing the mock auth with real JWT-based sessions.
 
-*— Tanushree Negi*
+*— Tanushree😊*
 

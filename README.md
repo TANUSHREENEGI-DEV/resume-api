@@ -299,5 +299,7 @@ The class exercise was to trace one simple route end to end through the new stru
 
 Built one route at a time, with persistence verified through Postman rather than assumed. Next up: replacing the mock auth with real JWT-based sessions.
 
-*— Tanushree😊*
+---
+
+~**Tanushree**🪼
 

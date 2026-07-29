@@ -326,49 +326,49 @@ flowchart LR
 
 Ran `node syncDb.js`, which calls `sequelize.sync()`. This builds the `Users` and `Resumes` tables from the model definitions if they don't already exist.
 
-[add syncDb.js terminal screenshot here — "tables synced"]
+<img width="1917" height="1020" alt="Screenshot 2026-07-25 022151" src="https://github.com/user-attachments/assets/8418ac3c-e731-412b-a96b-bb1f241bf5f5" />
 
 Confirmed in Workbench with `SHOW TABLES;` — both `users` and `resumes` showed up.
 
-[add SHOW TABLES screenshot here]
+<img width="1917" height="1020" alt="Screenshot 2026-07-25 022553" src="https://github.com/user-attachments/assets/a92ba4d4-74d0-46cb-b87f-f5338aa74869" />
 
 ### ▸ Step 2 — create a real user
 
 Ran `node createUser.js`, which calls `User.create()` with my own name and email. The `beforeCreate` hook on the model hashes the password with bcrypt before it ever touches the database.
 
-[add createUser.js terminal screenshot here — "Saved user #1"]
+<img width="1917" height="1020" alt="Screenshot 2026-07-25 023242" src="https://github.com/user-attachments/assets/80ca9485-c749-4a5c-9eca-11416669d013" />
 
 Confirmed in Workbench with `SELECT * FROM users;` — my row was there, and the `password` column showed a hashed string, not the plain text I typed in.
 
-[add SELECT * FROM users screenshot here]
+<img width="1917" height="1018" alt="Screenshot 2026-07-25 023534" src="https://github.com/user-attachments/assets/740900b9-b216-46fa-90ad-abf03d2db723" />
 
 ### ▸ Step 3 — create two resumes for that user
 
 Ran `node createResumes.js`, which calls `Resume.create()` twice with my `user.id` as the foreign key, then reads them back with `findAll`.
 
-[add createResumes.js terminal screenshot here — "Saved 2 resumes"]
+<img width="1917" height="1020" alt="Screenshot 2026-07-25 023751" src="https://github.com/user-attachments/assets/6c286a71-4f61-4f88-af42-a45d70cd9ace" />
 
 ### ▸ Step 4 — read a resume with its owner (a join)
 
 Ran `node readResumeWithOwner.js`, which uses `Resume.findByPk(id, { include: User })`. Sequelize wrote a real `LEFT OUTER JOIN` behind the scenes and attached the owner as `first.User`.
 
-[add readResumeWithOwner.js terminal screenshot here — "Resume ... belongs to Tanushree Negi"]
+<img width="1917" height="1018" alt="Screenshot 2026-07-25 023930" src="https://github.com/user-attachments/assets/1c3d86ae-4c4d-49d7-898d-0a2c48e5dbdb" />
 
 ### ▸ Step 5 — update a saved row
 
 Ran `node updateResume.js`, which changes `first.title` and calls `first.save()`. Sequelize knew exactly which row to update from the object's `id`, so it wrote a targeted `UPDATE ... WHERE id = 1` and refreshed `updatedAt` automatically.
 
-[add updateResume.js terminal screenshot here — "Updated title: Full Stack Developer Intern"]
+<img width="1917" height="1020" alt="Screenshot 2026-07-25 024309" src="https://github.com/user-attachments/assets/f2bcebf0-91c1-4eee-89f9-786694dd17fb" />
 
 Confirmed in Workbench with `SELECT * FROM resumes;` — the title change was there.
 
-[add SELECT * FROM resumes screenshot here]
+<img width="1917" height="1018" alt="Screenshot 2026-07-25 024401" src="https://github.com/user-attachments/assets/2f3336d0-1395-4908-b524-49ea28fbdc83" />
 
 ### ▸ Step 6 — try a forbidden thing on purpose
 
 Ran `node testForbidden.js`, which tries to create a second user with an email that's already in the table. The `unique: true` rule on the model is enforced by MySQL itself, not by my JavaScript — the insert never happened, and Sequelize threw a `SequelizeUniqueConstraintError` (`ER_DUP_ENTRY`) instead.
 
-[add testForbidden.js terminal screenshot here — duplicate entry error]
+<img width="1917" height="1018" alt="Screenshot 2026-07-25 024629" src="https://github.com/user-attachments/assets/b7774b3f-4977-430b-9085-615e4b8dbe6e" />
 
 ### ▸ What `sequelize.sync()` does, and why not `force: true`
 
@@ -380,7 +380,7 @@ Ran `node testForbidden.js`, which tries to create a second user with an email t
 
 ## ● Wrapping up
 
-Built one route at a time, with persistence verified through Postman rather than assumed. Next up: replacing the mock auth with real JWT-based sessions, and eventually deciding whether the Sequelize/MySQL layer replaces `data.json` or stays a separate experiment.
+Persistence verified through Postman at every step. Next up: real JWT auth, and deciding if Sequelize/MySQL replaces `data.json` or stays separate.
 
 ---
 

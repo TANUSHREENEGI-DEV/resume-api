@@ -1,4 +1,4 @@
-# Resume-API 🧾
+# Resume-API 
 
 This is the backend for **ResumeFlow**, my AI resume builder project. It's a REST API built with Express that handles everything from auth to documents to a mock AI layer — and now it actually saves data instead of forgetting everything the moment the server restarts.
 

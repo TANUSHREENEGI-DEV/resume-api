@@ -19,7 +19,6 @@ User.prototype.checkPassword = function (plainText) {
 
 User.associate = function (models) {
   User.hasMany(models.Resume, { foreignKey: 'userId', onDelete: 'CASCADE' });
-  User.hasMany(models.Document, { foreignKey: 'userId', onDelete: 'CASCADE' });
 };
 
 module.exports = User;

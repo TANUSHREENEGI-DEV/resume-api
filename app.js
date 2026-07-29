@@ -1,4 +1,3 @@
-// app.js
 const express = require("express");
 const logger = require("./middleware/logger");
 const routes = require("./routes");

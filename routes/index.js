@@ -1,6 +1,3 @@
-// routes/index.js
-// central router - collects every sub-router in one place.
-// app.js only needs to know about this one file, not each individual route file.
 const express = require("express");
 const router = express.Router();
 

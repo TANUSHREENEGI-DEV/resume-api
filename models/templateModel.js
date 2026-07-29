@@ -1,5 +1,3 @@
-// models/templateModel.js
-// read-only - templates are just seeded in data.json.
 const db = require("../db");
 
 function findAll() {

@@ -1,9 +1,7 @@
-// controllers/documentController.js
 const documentModel = require("../models/documentModel");
 
-// GET /api/documents/hello
 function hello(req, res) {
-  res.json({ message: "Hello from documents" });
+  res.json({ message: "Hello from Tanushree" });
 }
 
 function getDocOr404(req, res) {
@@ -15,66 +13,70 @@ function getDocOr404(req, res) {
   return doc;
 }
 
-// GET /api/documents
 function list(req, res) {
   res.status(200).json(documentModel.findAllByUser(req.user.id));
 }
 
-// POST /api/documents
 function create(req, res) {
-  const { title, type, templateId } = req.body;
+  const title = req.body.title;
+  const type = req.body.type;
+  const templateId = req.body.templateId;
+
   if (!title || !type) {
     return res.status(400).json({ error: "title and type are required" });
   }
 
   const newDoc = documentModel.create({
     userId: req.user.id,
-    title,
-    type,
+    title: title,
+    type: type,
     templateId: templateId || null
   });
+
   res.status(201).json(newDoc);
 }
 
-// POST /api/documents/import
 function importDoc(req, res) {
-  const { title, type, source, content } = req.body;
+  const title = req.body.title;
+  const type = req.body.type;
+  const source = req.body.source;
+  const content = req.body.content;
+
   if (!title || !type) {
     return res.status(400).json({ error: "title and type are required" });
   }
 
+  const sections = content && content.sections ? content.sections : [];
+
   const newDoc = documentModel.create({
     userId: req.user.id,
-    title,
-    type,
+    title: title,
+    type: type,
     templateId: null,
     importedFrom: source || "upload",
-    sections: content?.sections || []
+    sections: sections
   });
+
   res.status(201).json(newDoc);
 }
 
-// GET /api/documents/:id
 function getOne(req, res) {
   const doc = getDocOr404(req, res);
   if (!doc) return;
   res.status(200).json(doc);
 }
 
-// PUT /api/documents/:id
 function update(req, res) {
   const doc = getDocOr404(req, res);
   if (!doc) return;
 
-  const { title, sections } = req.body;
   const changes = {};
-  if (title !== undefined) changes.title = title;
-  if (sections !== undefined) changes.sections = sections;
+  if (req.body.title !== undefined) changes.title = req.body.title;
+  if (req.body.sections !== undefined) changes.sections = req.body.sections;
 
   res.status(200).json(documentModel.update(doc, changes));
 }
 
-// POST /api/documents/:id/duplicate
 function duplicate(req, res) {
   const doc = getDocOr404(req, res);
   if (!doc) return;
@@ -83,15 +85,12 @@ function duplicate(req, res) {
   delete cloned.id;
   delete cloned.createdAt;
   delete cloned.updatedAt;
+  cloned.title = doc.title + " (copy)";
 
-  const copy = documentModel.create({
-    ...cloned,
-    title: `${doc.title} (copy)`
-  });
+  const copy = documentModel.create(cloned);
   res.status(201).json(copy);
 }
 
-// DELETE /api/documents/:id
 function remove(req, res) {
   const doc = getDocOr404(req, res);
   if (!doc) return;
@@ -100,13 +99,14 @@ function remove(req, res) {
   res.status(204).send();
 }
 
-// ---------- sections ----------
-
 function addSection(req, res) {
   const doc = getDocOr404(req, res);
   if (!doc) return;
 
-  const { type, title, order } = req.body;
+  const type = req.body.type;
+  const title = req.body.title;
+  const order = req.body.order;
+
   if (!type || !title) {
     return res.status(400).json({ error: "type and title are required" });
   }
@@ -124,10 +124,9 @@ function updateSection(req, res) {
     return res.status(404).json({ error: "section not found" });
   }
 
-  const { title, order, type } = req.body;
-  if (title !== undefined) section.title = title;
-  if (order !== undefined) section.order = order;
-  if (type !== undefined) section.type = type;
+  if (req.body.title !== undefined) section.title = req.body.title;
+  if (req.body.order !== undefined) section.order = req.body.order;
+  if (req.body.type !== undefined) section.type = req.body.type;
 
   documentModel.update(doc, {});
   res.status(200).json(section);
@@ -143,8 +142,6 @@ function removeSection(req, res) {
   }
   res.status(204).send();
 }
-
-// ---------- items ----------
 
 function addItem(req, res) {
   const doc = getDocOr404(req, res);
@@ -193,8 +190,6 @@ function removeItem(req, res) {
   }
   res.status(204).send();
 }
-
-// ---------- versions ----------
 
 function listVersions(req, res) {
   const doc = getDocOr404(req, res);

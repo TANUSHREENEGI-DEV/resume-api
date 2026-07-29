@@ -1,6 +1,3 @@
-// models/userModel.js
-// everything that touches db.data.users lives here.
-// controllers call these functions, they never touch db.data directly.
 const db = require("../db");
 
 function findAll() {

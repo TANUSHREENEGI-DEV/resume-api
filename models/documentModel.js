@@ -1,5 +1,3 @@
-// models/documentModel.js
-// everything that touches db.data.documents lives here.
 const db = require("../db");
 
 function findAllByUser(userId) {

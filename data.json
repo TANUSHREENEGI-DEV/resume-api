@@ -8,6 +8,33 @@
       "tier": "free",
       "aiCredits": 5,
       "createdAt": "2026-07-01T00:00:00.000Z"
+    },
+    {
+      "id": "u_ms5exx7jzmllf",
+      "tier": "free",
+      "aiCredits": 5,
+      "createdAt": "2026-07-29T01:35:43.711Z",
+      "name": "Tanushree Negi",
+      "email": "test123@gmail.com",
+      "password": "$2b$10$Rx4T10CaVB4/sjR5qKPRceYiBiM7Rat2hFDymsePFJ70IWcp6uFCu"
+    },
+    {
+      "id": "u_ms8724k7mtitv",
+      "tier": "free",
+      "aiCredits": 5,
+      "createdAt": "2026-07-31T00:18:21.481Z",
+      "name": "Test User",
+      "email": "jwt-test@gmail.com",
+      "password": "$2b$10$tz6tb6LDB27cUPRfo256QuVkBcCKRR5..vWtg35MHEOVsvBNJLnDy"
+    },
+    {
+      "id": "u_ms879czsxwfs5",
+      "tier": "free",
+      "aiCredits": 5,
+      "createdAt": "2026-07-31T00:23:58.984Z",
+      "name": "Test User",
+      "email": "jwt-test2@gmail.com",
+      "password": "$2b$10$C79bVtCoDoEY..Ikix6hO.hG1/n421vNYJgYZ3hX75pmrrduvxgb6"
     }
   ],
   "documents": [

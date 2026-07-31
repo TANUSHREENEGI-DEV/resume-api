@@ -2,7 +2,7 @@
 
 This is the backend for **ResumeFlow**, my AI resume builder project. It's a REST API built with Express that handles everything from auth to documents to a mock AI layer — and now it actually saves data instead of forgetting everything the moment the server restarts.
 
-I built this as part of my Full Stack internship (Module 4, Day 13-14). Earlier version had all the routes working but data only lived in memory. This version fixes that — every write goes to `data.json` on disk, for real.
+I built this as part of my Full Stack internship . Earlier version had all the routes working but data only lived in memory. This version fixes that — every write goes to `data.json` on disk, for real.
 
 More recently (Day 18), I started a parallel track exploring **Sequelize + MySQL** as a real database layer, alongside the existing `data.json` system. That work lives in its own set of files, described further down.
 

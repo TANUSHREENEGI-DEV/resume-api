@@ -378,9 +378,235 @@ Ran `node testForbidden.js`, which tries to create a second user with an email t
 
 ---
 
+## ● Day 22-24: Full schema, hashed auth, and real JWT
+
+This is where the Sequelize track (started Day 18) grew into the app's actual database layer, and where auth stopped being mocked. Three days: build the full 9-table schema, layer register/login/reset on top of it with hashed passwords, then swap the mock tokens for real signed JWTs.
+
+### ▸ Day 22 — the full schema
+
+9 tables, one `model:generate` command each:
+
+```
+npx sequelize-cli model:generate --name User --attributes name:string,email:string,password:string,tier:enum:'{free,pro}',aiCredits:integer
+npx sequelize-cli model:generate --name Template --attributes name:string,config:text
+npx sequelize-cli model:generate --name Document --attributes title:string,type:enum:'{resume,cover_letter}',userId:integer,templateId:integer
+npx sequelize-cli model:generate --name Section --attributes heading:string,position:integer,documentId:integer
+npx sequelize-cli model:generate --name Item --attributes content:text,position:integer,sectionId:integer
+npx sequelize-cli model:generate --name Version --attributes snapshot:text,label:string,documentId:integer
+npx sequelize-cli model:generate --name Application --attributes company:string,role:string,status:enum:'{saved,applied,interview,offer,rejected}',userId:integer,documentId:integer
+npx sequelize-cli model:generate --name Share --attributes slug:string,documentId:integer
+npx sequelize-cli model:generate --name Export --attributes format:enum:'{pdf,docx}',fileUrl:string,documentId:integer,userId:integer
+```
+
+Each command creates two files that already match each other: a **model** in `models/` (what my code talks to every day) and a **migration** in `migrations/` (the one-time instructions that build the table). Kept mixing these up at first — the migration builds the shelf, the model is how I put things on and take things off that shelf.
+
+```mermaid
+classDiagram
+    class User {
+        +id
+        +name
+        +email
+        +password
+        +tier
+        +aiCredits
+    }
+    class Template {
+        +id
+        +name
+        +config
+    }
+    class Document {
+        +id
+        +title
+        +type
+        +userId
+        +templateId
+    }
+    class Section {
+        +id
+        +heading
+        +position
+        +documentId
+    }
+    class Item {
+        +id
+        +content
+        +position
+        +sectionId
+    }
+    class Version {
+        +id
+        +snapshot
+        +label
+        +documentId
+    }
+    class Application {
+        +id
+        +company
+        +role
+        +status
+        +userId
+        +documentId
+    }
+    class Share {
+        +id
+        +slug
+        +documentId
+    }
+    class Export {
+        +id
+        +format
+        +fileUrl
+        +documentId
+        +userId
+    }
+
+    User "1" --> "many" Document
+    Template "1" --> "many" Document
+    Document "1" --> "many" Section
+    Section "1" --> "many" Item
+    Document "1" --> "many" Version
+    User "1" --> "many" Application
+    Document "1" --> "many" Application
+    Document "1" --> "many" Share
+    Document "1" --> "many" Export
+    User "1" --> "many" Export
+```
+
+Filled in the blank `associate()` function Sequelize leaves in each model:
+
+```javascript
+Document.belongsTo(models.User, { foreignKey: 'userId' });
+Document.belongsTo(models.Template, { foreignKey: 'templateId' });
+Document.hasMany(models.Section, { foreignKey: 'documentId', onDelete: 'CASCADE' });
+Document.hasMany(models.Version, { foreignKey: 'documentId', onDelete: 'CASCADE' });
+Document.hasMany(models.Application, { foreignKey: 'documentId', onDelete: 'CASCADE' });
+Document.hasMany(models.Share, { foreignKey: 'documentId', onDelete: 'CASCADE' });
+Document.hasMany(models.Export, { foreignKey: 'documentId', onDelete: 'CASCADE' });
+```
+
+`belongsTo` means this table points to the other one. `hasMany` means the other table points back, potentially many times. `onDelete: CASCADE` means if the parent gets deleted, the connected rows get deleted automatically instead of turning into orphaned data.
+
+Ran `npx sequelize-cli db:migrate` after this, and all 9 tables showed up in MySQL Workbench.
+
+**What I ran into:** my project already had a `Resume` model and table from the Day 18 exercise above, so there was a small naming conflict with the new class schema's `Document`. Kept `Document` going forward since that's what the class uses, and left the old `Resume` table alone instead of deleting anything with real data in it.
+
+**What I learned:** a migration is instructions, run once, to build a table — a model is what my running code uses every day. The foreign key is a column in the database; the association is what tells Sequelize how to use that column to actually pull related data together. `onDelete: CASCADE` matters — I don't want orphaned sections and versions sitting around with no parent document.
+
+### ▸ Day 23 — register, password hashing, Promises
+
+Built `/api/auth/register` — takes name/email/password, checks the email isn't already used, saves the user, and returns a token right away so they're logged in immediately after signing up. Still a mock token at this point:
+
+<img src="./screenshots/day22-24/register-mock-token.png" alt="Register endpoint returning a mock token" width="900" />
+
+A password should never be stored the way it was typed. I used `bcrypt.hash()` to scramble it before saving — what actually sits in my database is that scrambled version, never the real password. Hashing is one-way on purpose: even I, looking directly at my own database, can't read anyone's real password. At login, I hash whatever was just typed and compare the two scrambled versions with `bcrypt.compare()` instead of comparing plain text.
+
+A Promise is how JavaScript handles something that takes time without freezing everything else while it waits. Three states — pending, resolved, rejected. `.then()` runs on success, `.catch()` runs on failure. Wrote a small demo to see this behave for real:
+
+```javascript
+function checkAge(age) {
+  return new Promise(function (resolve, reject) {
+    if (age >= 18) {
+      resolve("age check passed, user is an adult");
+    } else {
+      reject("age check failed, user is a minor");
+    }
+  });
+}
+
+checkAge(21)
+  .then(function (result) {
+    console.log("success:", result);
+  })
+  .catch(function (error) {
+    console.log("error:", error);
+  });
+
+checkAge(15)
+  .then(function (result) {
+    console.log("success:", result);
+  })
+  .catch(function (error) {
+    console.log("error:", error);
+  });
+```
+
+<img src="./screenshots/day22-24/promise-demo-terminal.png" alt="Terminal output of the checkAge Promise demo" width="900" />
+
+Before Promises, chained slow steps were handled with callbacks nested inside callbacks — the code drifts to the right the deeper it goes, and error handling gets messy at every level. Promises flatten that into one `.then` chain. `async/await` goes a step further — the slow steps read top to bottom like normal synchronous code, and all the error handling lives in one `try/catch` instead of being scattered. This is exactly why `register` and `login` in `authController.js` are `async` functions using `await bcrypt.hash(...)` instead of chaining `.then()` calls everywhere.
+
+### ▸ Day 24 — real JWT auth
+
+Day 23 got register/login/hashing working with mock tokens (`mock-token-${user.id}`). Day 24 replaced those with real signed JWTs, and covered how tokens and npm package versions actually work.
+
+- **Register** — hashes the password, saves the user, returns a real JWT so the user is logged in right after signup
+- **Login** — checks the typed password against the stored hash with `bcrypt.compare()`, returns a fresh token if it matches
+- **Reset password** — replaces the stored hash with a new one, so the old password stops working immediately
+
+```javascript
+const jwt = require("jsonwebtoken");
+const SECRET = process.env.JWT_SECRET;
+
+const token = jwt.sign({ id: user.id }, SECRET, { expiresIn: "7d" });
+```
+
+The secret lives in `.env`, never hardcoded in the file itself.
+
+A JWT is three parts joined by dots — `header.payload.signature`. The payload holds data like the user id, and anyone with the token can read it (confirmed this on jwt.io — the payload decodes without needing any secret), so nothing sensitive ever goes in there. The signature is made with the server's secret key — change even one character of the token, and `jwt.verify()` rejects it instantly. That's the whole security model behind one line: `jwt.verify(token, SECRET)`.
+
+Also looked at npm versioning — a version is `MAJOR.MINOR.PATCH`, like `4.17.21`:
+
+| Symbol | Example | Accepts |
+|--------|---------|---------|
+| none | `4.17.21` | exactly that version, nothing else |
+| `~` (tilde) | `~4.17.21` | patch updates only — `4.17.22` |
+| `^` (caret) | `^4.17.21` | minor + patch — `4.18.0`, `4.99.9`, never `5.0.0` |
+
+Checked my own `package.json` — everything uses `^`:
+
+```json
+"bcryptjs": "^3.0.3",
+"express": "^5.2.1",
+"jsonwebtoken": "^9.0.3",
+"mysql2": "^3.23.1",
+"sequelize": "^6.37.8"
+```
+
+So `npm install` can bump any of these to a newer minor or patch release automatically, but will never jump to a new major version on its own — because a major version bump can carry breaking changes.
+
+### ▸ Proof it actually works
+
+Tested the full auth flow through Postman rather than assuming it worked.
+
+**Forgot password generates a reset token behind the scenes:**
+
+<img src="./screenshots/day22-24/forgot-password-200.png" alt="Forgot-password endpoint returning 200" width="900" />
+
+**Reset password actually updates the stored hash (200):**
+
+<img src="./screenshots/day22-24/reset-password-200.png" alt="Reset-password endpoint returning 200" width="900" />
+
+**The old password stops working immediately after reset (401):**
+
+<img src="./screenshots/day22-24/login-401-old-password.png" alt="Login with the old password rejected with 401" width="900" />
+
+Also confirmed directly in `data.json` that every registered user's `password` field is a bcrypt hash (`$2b$10$...`), never the plain text that was typed in.
+
+And on jwt.io — took a real token, decoded the payload to see my own user id sitting there in plain view, then changed one character of the encoded token and watched the signature verification flip to invalid.
+
+**What I learned across these three days:**
+- A migration builds the table once. A model is what the running app actually uses.
+- Associations are how Sequelize turns a foreign key column into something my code can actually use to pull related data together.
+- Hashing protects passwords even if the database itself gets compromised — that's the entire point of it being one-way.
+- A JWT payload is readable by anyone holding the token. It's the signature, not secrecy of the payload, that makes it trustworthy.
+- `async/await` isn't a different thing from Promises, it's a cleaner way of writing code that's already using them underneath.
+- `^` in package.json is more permissive than I assumed — it can pull in a lot of minor version changes automatically, which is fine for patches and small features but still worth knowing about before assuming my dependencies are frozen.
+
+---
+
 ## ● Wrapping up
 
-Persistence verified through Postman at every step. Next up: real JWT auth, and deciding if Sequelize/MySQL replaces `data.json` or stays separate.
+Persistence verified through Postman at every step, full 9-table schema built with Sequelize, and auth is now running on real hashed passwords and signed JWTs instead of mocks. Next up: deciding if Sequelize/MySQL replaces `data.json` or stays separate, and wiring the JWT middleware into the rest of the protected routes.
 
 ---
 
